@@ -1,0 +1,114 @@
+cmake_minimum_required(VERSION 4.3.2)
+project(sorted_array_tower
+  VERSION 1.0.0
+  DESCRIPTION "A C++ library for efficient sorted array operations"
+  LANGUAGES CXX
+)
+
+# Set C++ standard
+if(NOT DEFINED CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 20)
+endif()
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Option for building with modules (C++20 modules support)
+option(SAT_USE_MODULES "Use C++20 modules instead of headers" OFF)
+
+if(SAT_USE_MODULES)
+  if(NOT CMAKE_GENERATOR STREQUAL "Ninja" AND NOT CMAKE_GENERATOR STREQUAL "Ninja Multi-Config" AND NOT CMAKE_GENERATOR MATCHES "Visual Studio")
+    message(WARNING "C++ modules are not supported by generator ${CMAKE_GENERATOR}; falling back to header-only mode")
+    set(SAT_USE_MODULES OFF CACHE BOOL "Use C++20 modules instead of headers" FORCE)
+  endif()
+endif()
+
+# Include Conan generated files
+if(EXISTS "${CMAKE_BINARY_DIR}/conan_toolchain.cmake")
+  include("${CMAKE_BINARY_DIR}/conan_toolchain.cmake")
+endif()
+
+# Find Conan-provided packages
+find_package(doctest QUIET)
+
+# Main library target
+if(SAT_USE_MODULES)
+  add_library(sorted_array_tower STATIC)
+else()
+  add_library(sorted_array_tower INTERFACE)
+endif()
+
+if(SAT_USE_MODULES)
+  # Module-based implementation (C++20)
+  target_sources(sorted_array_tower
+    PUBLIC
+      FILE_SET CXX_MODULES
+        FILES src/sorted_array_tower.cppm
+      FILE_SET HEADERS
+        FILES include/sorted_array_tower/sorted_array_tower.hpp
+        BASE_DIRS include
+  )
+  target_compile_features(sorted_array_tower PUBLIC cxx_std_20)
+  set(SAT_TARGET_VISIBILITY PUBLIC)
+else()
+  # Header-only implementation
+  target_sources(sorted_array_tower
+    INTERFACE
+      FILE_SET headers
+        TYPE HEADERS
+        FILES include/sorted_array_tower/sorted_array_tower.hpp
+  )
+  set(SAT_TARGET_VISIBILITY INTERFACE)
+endif()
+
+# Set include directories
+target_include_directories(sorted_array_tower
+  ${SAT_TARGET_VISIBILITY}
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+
+# Enable testing
+enable_testing()
+
+# Add test executable
+if(doctest_FOUND)
+  add_executable(test_sorted_array_tower
+    tests/test_sorted_array_tower.cpp
+  )
+
+  if(SAT_USE_MODULES)
+    target_compile_definitions(test_sorted_array_tower
+      PRIVATE
+        SAT_USE_MODULES
+    )
+  endif()
+
+  target_link_libraries(test_sorted_array_tower
+    PRIVATE
+      sorted_array_tower
+      doctest::doctest
+  )
+
+  target_include_directories(test_sorted_array_tower
+    PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}/include
+  )
+
+  add_test(
+    NAME sorted_array_tests
+    COMMAND test_sorted_array_tower
+  )
+else()
+  message(WARNING "doctest not found - tests will not be built")
+endif()
+
+# Installation rules
+install(TARGETS sorted_array_tower
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+  RUNTIME DESTINATION bin
+)
+
+install(DIRECTORY include/sorted_array_tower
+  DESTINATION include
+)
