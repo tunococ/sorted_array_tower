@@ -102,6 +102,56 @@ else()
   message(WARNING "doctest not found - tests will not be built")
 endif()
 
+# Code coverage support (only when this is the top-level project)
+if(PROJECT_IS_TOP_LEVEL)
+  option(SAT_ENABLE_COVERAGE "Enable code coverage instrumentation" OFF)
+
+  if(SAT_ENABLE_COVERAGE)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+      if(doctest_FOUND)
+        target_compile_options(test_sorted_array_tower PRIVATE --coverage -O0 -g)
+        target_link_options(test_sorted_array_tower PRIVATE --coverage)
+
+        find_program(GCOVR gcovr)
+
+        if(GCOVR)
+          if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+            find_program(SAT_LLVM_COV llvm-cov)
+            if(SAT_LLVM_COV)
+              set(SAT_GCOV_EXECUTABLE "${SAT_LLVM_COV} gcov")
+            else()
+              message(WARNING "llvm-cov not found — coverage target will not be created")
+              set(SAT_ENABLE_COVERAGE OFF)
+            endif()
+          else()
+            set(SAT_GCOV_EXECUTABLE gcov)
+          endif()
+
+          if(SAT_ENABLE_COVERAGE)
+            add_custom_target(coverage
+              COMMAND $<TARGET_FILE:test_sorted_array_tower>
+              COMMAND ${CMAKE_COMMAND} -E make_directory coverage_report
+              COMMAND ${GCOVR} --root ${CMAKE_SOURCE_DIR}
+                --html --html-details
+                --output coverage_report/index.html
+                --exclude "${CMAKE_SOURCE_DIR}/tests/.*"
+                --gcov-executable "${SAT_GCOV_EXECUTABLE}"
+              WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+              COMMENT "Generating code coverage report in ${CMAKE_BINARY_DIR}/coverage_report/"
+            )
+          endif()
+        else()
+          message(WARNING "gcovr not found — coverage target will not be created")
+        endif()
+      endif()
+    elseif(MSVC)
+      message(WARNING "Code coverage is not supported with MSVC")
+    else()
+      message(WARNING "Code coverage is not supported with ${CMAKE_CXX_COMPILER_ID}")
+    endif()
+  endif()
+endif()
+
 # Installation rules
 install(TARGETS sorted_array_tower
   LIBRARY DESTINATION lib

@@ -29,7 +29,7 @@ class SortedArrayTowerConan(ConanFile):
     }
 
     def layout(self):
-        cmake_layout(self, build_folder=".")
+        cmake_layout(self, build_folder="build")
 
     def generate(self):
         tc = CMakeToolchain(self)
@@ -44,7 +44,9 @@ class SortedArrayTowerConan(ConanFile):
 
     def build(self):
         cmake = CMake(self)
-        cmake.configure(variables={"SAT_USE_MODULES": self.options.use_modules})
+        cmake.configure(variables={
+            "SAT_USE_MODULES": self.options.use_modules,
+        })
         cmake.build()
 
     def test(self):
