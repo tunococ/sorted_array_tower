@@ -128,16 +128,17 @@ if(PROJECT_IS_TOP_LEVEL)
           endif()
 
           if(SAT_ENABLE_COVERAGE)
+            set(SAT_BUILD_DIR "$<TARGET_FILE_DIR:test_sorted_array_tower>")
             add_custom_target(coverage
               COMMAND $<TARGET_FILE:test_sorted_array_tower>
-              COMMAND ${CMAKE_COMMAND} -E make_directory coverage_report
+              COMMAND ${CMAKE_COMMAND} -E make_directory "${SAT_BUILD_DIR}/coverage_report"
               COMMAND ${GCOVR} --root ${CMAKE_SOURCE_DIR}
                 --html --html-details
-                --output coverage_report/index.html
+                --output "${SAT_BUILD_DIR}/coverage_report/index.html"
                 --exclude "${CMAKE_SOURCE_DIR}/tests/.*"
                 --gcov-executable "${SAT_GCOV_EXECUTABLE}"
-              WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-              COMMENT "Generating code coverage report in ${CMAKE_BINARY_DIR}/coverage_report/"
+              WORKING_DIRECTORY "${SAT_BUILD_DIR}"
+              COMMENT "Generating code coverage report in ${SAT_BUILD_DIR}/coverage_report"
             )
           endif()
         else()
