@@ -44,6 +44,20 @@ Before you start building, you should be aware if your *build generator* is a
 single-config generator or a multi-config generator, as the build process
 differs slightly based on this.
 
+### GitHub Actions Status Badges
+
+This project can expose per-config pass/fail status via GitHub Actions job badges.
+Each build/test configuration is run as a separate job in `.github/workflows/docker-build.yml`.
+
+Example badge links (replace `tunococ/sorted_array_tower` if needed):
+
+```md
+[![GCC Debug](https://github.com/tunococ/sorted_array_tower/actions/workflows/docker-build.yml/badge.svg?query=branch%3Amain+job%3A%22Build+%26+Test+GCC+Debug%22)](https://github.com/tunococ/sorted_array_tower/actions/workflows/docker-build.yml)
+[![Clang Debug](https://github.com/tunococ/sorted_array_tower/actions/workflows/docker-build.yml/badge.svg?query=branch%3Amain+job%3A%22Build+%26+Test+Clang+Debug%22)](https://github.com/tunococ/sorted_array_tower/actions/workflows/docker-build.yml)
+```
+
+Coverage HTML is uploaded as a GitHub Actions artifact, so it can be downloaded and viewed after the workflow runs.
+
 A single-config generator needs to choose between the *debug* mode and the
 *release* mode in step 1, while a multi-config generator does so in step 3.
 

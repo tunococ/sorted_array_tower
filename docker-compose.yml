@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  # Ubuntu 24.04 LTS (recommended - most tested)
+  ubuntu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_BASE_IMAGE: ubuntu:24.04
+    image: sorted-tower:ubuntu
+    container_name: sorted-tower-ubuntu
+
+  # Debian Bookworm (stable)
+  debian:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_BASE_IMAGE: debian:bookworm
+    image: sorted-tower:debian
+    container_name: sorted-tower-debian
+
+  # Fedora 40 (latest stable)
+  fedora:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_BASE_IMAGE: fedora:40
+    image: sorted-tower:fedora
+    container_name: sorted-tower-fedora
+    # Fedora uses dnf instead of apt, so we need a different Dockerfile
+    # For now, this will fail - you can create a separate Dockerfile.fedora if needed
+
+  # Alpine (minimal)
+  alpine:
+    build:
+      context: .
+      dockerfile: Dockerfile.alpine
+      args:
+        BUILD_BASE_IMAGE: alpine:latest
+    image: sorted-tower:alpine
+    container_name: sorted-tower-alpine
+    # Alpine uses apk instead of apt, so we need a different Dockerfile
+    # See Dockerfile.alpine for implementation

@@ -1,0 +1,129 @@
+name: CI - Docker Build and Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-and-test:
+    name: Build & Test ${{ matrix.label }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: GCC Debug
+            image_tag: gcc-debug
+            profile: .pr/gcc-debug
+            preset: conan-debug
+            kind: single
+          - label: GCC Release
+            image_tag: gcc-release
+            profile: .pr/gcc-release
+            preset: conan-release
+            kind: single
+          - label: GCC Multi
+            image_tag: gcc-multi
+            profile_debug: .pr/gcc-multi-debug
+            profile_release: .pr/gcc-multi-release
+            preset: conan-default
+            kind: multi
+          - label: Clang Debug
+            image_tag: clang-debug
+            profile: .pr/clang-debug
+            preset: conan-debug
+            kind: single
+          - label: Clang Release
+            image_tag: clang-release
+            profile: .pr/clang-release
+            preset: conan-release
+            kind: single
+          - label: Clang Multi
+            image_tag: clang-multi
+            profile_debug: .pr/clang-multi-debug
+            profile_release: .pr/clang-multi-release
+            preset: conan-default
+            kind: multi
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t sorted-tower:${{ matrix.image_tag }} \
+            .
+
+      - name: Run build and test
+        run: |
+          set -e
+          if [ "${{ matrix.kind }}" = "single" ]; then
+            docker run --rm sorted-tower:${{ matrix.image_tag }} bash -lc '
+              set -e
+              cd /workspace
+              rm -rf build
+              conan install . --build=missing -pr "${{ matrix.profile }}"
+              cmake --preset "${{ matrix.preset }}"
+              cmake --build --preset "${{ matrix.preset }}"
+              ctest --preset "${{ matrix.preset }}" --output-on-failure
+            '
+          else
+            docker run --rm sorted-tower:${{ matrix.image_tag }} bash -lc '
+              set -e
+              cd /workspace
+              rm -rf build
+              conan install . --build=missing -pr "${{ matrix.profile_debug }}"
+              conan install . --build=missing -pr "${{ matrix.profile_release }}"
+              cmake --preset "${{ matrix.preset }}"
+              cmake --build --preset conan-debug
+              ctest --preset conan-debug --output-on-failure
+              cmake --build --preset conan-release
+              ctest --preset conan-release --output-on-failure
+            '
+          fi
+
+  coverage-report:
+    name: Coverage Report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image for coverage
+        run: |
+          docker build \
+            -t sorted-tower:coverage \
+            .
+
+      - name: Run coverage build
+        run: |
+          set -e
+          docker create --name coverage-run sorted-tower:coverage bash -lc '
+            set -e
+            cd /workspace
+            rm -rf build
+            conan install . --build=missing -pr .pr/clang-debug
+            cmake --preset conan-debug -DSAT_ENABLE_COVERAGE=ON
+            cmake --build --preset conan-debug
+            cmake --build --preset conan-debug --target coverage
+          '
+          docker start -a coverage-run
+          mkdir -p coverage-report
+          docker cp coverage-run:/workspace/build/Debug/coverage_report coverage-report
+          docker rm coverage-run
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage-report
+          retention-days: 30
