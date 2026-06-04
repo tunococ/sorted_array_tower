@@ -137,6 +137,11 @@ if(PROJECT_IS_TOP_LEVEL)
                 --output "${SAT_BUILD_DIR}/coverage_report/index.html"
                 --exclude "${CMAKE_SOURCE_DIR}/tests/.*"
                 --gcov-executable "${SAT_GCOV_EXECUTABLE}"
+              COMMAND ${GCOVR} --root ${CMAKE_SOURCE_DIR}
+                --cobertura
+                --output "${SAT_BUILD_DIR}/coverage_report/cobertura.xml"
+                --exclude "${CMAKE_SOURCE_DIR}/tests/.*"
+                --gcov-executable "${SAT_GCOV_EXECUTABLE}"
               WORKING_DIRECTORY "${SAT_BUILD_DIR}"
               COMMENT "Generating code coverage report in ${SAT_BUILD_DIR}/coverage_report"
             )
