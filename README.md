@@ -468,9 +468,9 @@ For example,
   just make-reports [<compiler> [<modules>]]
   ```
 
-  Cleans, builds, runs tests with the release build to generate a test report
-  (in <build/Release/report.xml>), and runs tests with the debug build to
-  generate a coverage report (in <build/Debug/coverage_report>).
+  Cleans, builds, runs tests to generate a test report (in
+  <build/Debug/report.xml>), and a coverage report (in
+  <build/Debug/coverage_report>).
 
 ### Docker
 
@@ -532,3 +532,9 @@ for convenience.
   Calls `docker rmi` on all images whose tags have the specified `prefix`.
   If `prefix` is not specified, it defaults to `sat-`, which is the prefix of
   `name` in [compose.yaml](ci/compose.yaml).
+
+Example:
+
+- ```bash
+  just run-docker ubuntu full just check-builds
+  ```

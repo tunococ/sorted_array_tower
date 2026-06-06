@@ -133,15 +133,18 @@ if(PROJECT_IS_TOP_LEVEL)
               COMMAND $<TARGET_FILE:test_sorted_array_tower>
               COMMAND ${CMAKE_COMMAND} -E make_directory "${SAT_BUILD_DIR}/coverage_report"
               COMMAND ${GCOVR} --root ${CMAKE_SOURCE_DIR}
-                --html --html-details
-                --output "${SAT_BUILD_DIR}/coverage_report/index.html"
-                --exclude "${CMAKE_SOURCE_DIR}/tests/.*"
-                --gcov-executable "${SAT_GCOV_EXECUTABLE}"
-              COMMAND ${GCOVR} --root ${CMAKE_SOURCE_DIR}
+                --txt
+                "${SAT_BUILD_DIR}/coverage_report/report.txt"
+                --html-details
+                "${SAT_BUILD_DIR}/coverage_report/index.html"
                 --cobertura
-                --output "${SAT_BUILD_DIR}/coverage_report/cobertura.xml"
+                "${SAT_BUILD_DIR}/coverage_report/cobertura.xml"
+                --markdown
+                "${SAT_BUILD_DIR}/coverage_report/summary.md"
                 --exclude "${CMAKE_SOURCE_DIR}/tests/.*"
                 --gcov-executable "${SAT_GCOV_EXECUTABLE}"
+                --txt-summary >
+                "${SAT_BUILD_DIR}/coverage_report/summary.txt"
               WORKING_DIRECTORY "${SAT_BUILD_DIR}"
               COMMENT "Generating code coverage report in ${SAT_BUILD_DIR}/coverage_report"
             )

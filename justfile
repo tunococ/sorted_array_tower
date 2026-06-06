@@ -65,7 +65,12 @@ alias b := bd
 
 # Run tests
 test build_type *args:
-    ctest --preset conan-{{ build_type }} --output-junit report.xml {{ args }}
+    ctest --preset conan-{{ build_type }} \
+        --output-junit test-report.xml \
+        -O build/{{ \
+            if lowercase(build_type) =~ 'rel' { 'Release' } else { 'Debug' } \
+        }}/test-report.txt \
+        {{ args }}
 
 td: (test 'debug')
 
@@ -76,6 +81,9 @@ ta: td tr
 # Run tests and generate a coverage report
 build-cov build_type *args:
     just build {{ build_type }} --target coverage {{ args }}
+    cat build/{{ \
+            if lowercase(build_type) =~ 'rel' { 'Release' } else { 'Debug' } \
+        }}/coverage_report/summary.txt
 
 bcd: (build-cov 'debug')
 
@@ -143,10 +151,8 @@ check-builds:
     just clean-build debug clang cov mod
     just clean-build debug clang cov -
 
-# Make a test report in release, and a coverage report in debug.
+# Make a test report and a coverage report in debug.
 make-reports compiler='gcc' modules='mod':
     just clean
-    just init release {{ compiler }} - {{ modules }}
     just init debug {{ compiler }} cov {{ modules }}
-    just br tr
-    just bcd
+    just bd td bcd
