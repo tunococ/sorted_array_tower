@@ -64,8 +64,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PR_URL=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" \
-            --jq '.[0].html_url // empty' 2>/dev/null || true)
+          PR_URL=$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --state merged \
+            --limit 1 \
+            --json url \
+            --template '{{range .}}{{.url}}{{end}}')
 
           ISSUE_BODY="**Post-Merge Checks** [failed]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID).
 
@@ -82,5 +86,6 @@ jobs:
           Check the [workflow run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID) for details."
 
           gh issue create \
+            --repo "${{ github.repository }}" \
             --title "Post-merge checks failed on ${GITHUB_SHA:0:7}" \
             --body "$ISSUE_BODY"
