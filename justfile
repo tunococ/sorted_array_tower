@@ -6,33 +6,153 @@ clean:
 detect:
     conan profile detect --force
 
-# Initialize single-config build
-init-single compiler='gcc' build_type='debug' coverage=( if build_type == 'debug' { 'cov' } else { '' } ):
+# Initialize single-config build for a given build type
+init build_type compiler='gcc' coverage='cov' modules='mod':
     conan install . --build=missing -pr .pr/{{ compiler }}-{{ build_type }} \
-    && cmake --preset conan-{{ build_type }} \
-    -DSAT_ENABLE_COVERAGE={{ if coverage =~ 'cov' { 'ON' } else { 'OFF' } }}
+        -o '&:use_modules={{ if modules =~ 'mod' { 'True' } else { 'False' } }}'
+    cmake --preset conan-{{ build_type }} \
+        -DSAT_ENABLE_COVERAGE={{ if coverage =~ 'cov' { 'ON' } else { 'OFF' } }}
+
+# Initialize single-config build for both build types
+init-single compiler='gcc' coverage='cov' modules='mod':
+    just init debug {{ compiler }} {{ coverage }} {{ modules }}
+    just init release {{ compiler }} {{ coverage }} {{ modules }}
 
 # Initialize multi-config build
-init-multi compiler='gcc' coverage='':
+init-multi compiler='gcc' coverage='cov' modules='mod':
     conan install . --build=missing -pr .pr/{{ compiler }}-multi-debug \
-    && conan install . --build=missing -pr .pr/{{ compiler }}-multi-release \
-    && cmake --preset conan-default \
-    -DSAT_ENABLE_COVERAGE={{ if coverage =~ 'cov' { 'ON' } else { 'OFF' } }}
+        -o '&:use_modules={{ if modules =~ 'mod' { 'True' } else { 'False' } }}'
+    conan install . --build=missing -pr .pr/{{ compiler }}-multi-release \
+        -o '&:use_modules={{ if modules =~ 'mod' { 'True' } else { 'False' } }}'
+    cmake --preset conan-default \
+        -DSAT_ENABLE_COVERAGE={{ if coverage =~ 'cov' { 'ON' } else { 'OFF' } }}
 
-alias init := init-single
+# Run `init debug`
+id: (init 'debug')
+
+# Run `init release`
+ir: (init 'release')
+
+# Run `init debug` and `init release`
+is: id ir
+
+# Run `init-multi`
+im: init-multi
+
+# Run `init debug`, but with use_modules=False
+ihd: (init 'debug' 'gcc' 'cov' '-')
+
+# Run `init release`, but with use_modules=False
+ihr: (init 'release' 'gcc' 'cov' '-')
+
+# Run `init debug` and `init release`, but with use_modules=False
+ihs: ihd ihr
+
+# Run `init-multi`, but with use_modules=False
+ihm: (init-multi 'gcc' 'cov' '-')
 
 # Build code
-build build_type='debug':
-    cmake --build --preset conan-{{ build_type }}
+build build_type *args:
+    cmake --build --preset conan-{{ build_type }} {{ args }}
+
+bd: (build 'debug')
+
+br: (build 'release')
+
+ba: bd br
+
+alias b := bd
 
 # Run tests
-test build_type='debug':
-    ctest --preset conan-{{ build_type }}
+test build_type *args:
+    ctest --preset conan-{{ build_type }} \
+        --output-junit test-report.xml \
+        -O build/{{ \
+            if lowercase(build_type) =~ 'rel' { 'Release' } else { 'Debug' } \
+        }}/test-report.txt \
+        {{ args }}
+
+td: (test 'debug')
+
+tr: (test 'release')
+
+ta: td tr
 
 # Run tests and generate a coverage report
-build-cov build_type='debug':
-    cmake --build --preset conan-{{ build_type }} --target coverage
+build-cov build_type *args:
+    just build {{ build_type }} --target coverage {{ args }}
+    cat build/{{ \
+            if lowercase(build_type) =~ 'rel' { 'Release' } else { 'Debug' } \
+        }}/coverage_report/summary.txt
+
+bcd: (build-cov 'debug')
+
+bcr: (build-cov 'release')
+
+bca: bcd bcr
 
 # Show the coverage report in a web browser
-show-cov build_type='debug':
-    python3 -m http.server --directory build/{{ if build_type == 'release' { 'Release' } else { 'Debug' } }}/coverage_report 8080
+show-cov build_type port='8080':
+    python3 -m http.server --directory \
+        build/{{ \
+            if lowercase(build_type) =~ 'rel' { 'Release' } else { 'Debug' } \
+        }}/coverage_report {{ port }}
+
+scd: (show-cov 'debug')
+
+scr: (show-cov 'release')
+
+
+# Docker-related commands
+# =======================
+
+# Create an ephemeral container and run an interactive shell inside it.
+run-docker variant='alpine' stage='full' *args='':
+    VARIANT={{ variant }} docker compose -f ci/compose.yaml \
+        run --rm -it {{ stage }} {{ args }}
+
+# Create a new docker container.
+create-docker variant='alpine' stage='full' name=(variant + '-' + stage) \
+    *args='tail -f /dev/null':
+    docker rm -f {{ name }} 2>/dev/null || true
+    VARIANT={{ variant }} docker compose -f ci/compose.yaml \
+        run -d --name {{ name }} {{ stage }} {{ args }}
+
+# Remove Docker images matching a given prefix.
+clean-docker-images prefix='sat-':
+    docker rmi $(docker images --format '{{{{.Repository}}:{{{{.Tag}}' | \
+        grep '^{{ prefix }}') 2>/dev/null || true
+
+
+# Composite commands for testing different configurations
+# =======================================================
+
+# Clean --> Build
+clean-build build_type='debug' compiler='gcc' coverage='cov' modules='mod':
+    just clean
+    just init {{ build_type }} {{ compiler }} {{ coverage }} {{ modules }}
+    just build {{ build_type }}
+
+# Clean --> Test
+clean-test build_type='debug' compiler='gcc' coverage='cov' modules='mod':
+    just clean-build {{ build_type }} {{ compiler }} {{ coverage }} \
+        {{ modules }}
+    just test {{ build_type }}
+
+# Clean --> Coverage report
+clean-cov build_type='debug' compiler='gcc' modules='mod':
+    just clean-build {{ build_type }} {{ compiler }} cov {{ modules }}
+    just build-cov {{ build_type }}
+
+# Try building code for different configurations.
+check-builds:
+    just clean-build debug gcc cov mod
+    just clean-build debug gcc cov -
+    just clean-build debug clang cov mod
+    just clean-build debug clang cov -
+
+# Make a test report and a coverage report in debug.
+make-reports compiler='gcc' modules='mod':
+    just clean
+    just init debug {{ compiler }} cov {{ modules }}
+    just bd td bcd

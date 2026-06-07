@@ -29,7 +29,8 @@ C++ module support
 - `clang` needs `clang-scan-deps` command to be available.
 
 Coverage information
-- `gcovr` is needed to generate coverage reports.
+- [`gcovr`]((https://gcovr.com/en/stable/installation.html) is needed to
+  generate coverage reports.
 - GCC needs `gcov`. It must be the same version as `gcc`.
 - Clang needs `llvm-cov`. It must be the same version as `clang`.
 
@@ -42,18 +43,14 @@ The build process consists of the following steps:
 
 Before you start building, you should be aware if your *build generator* is a
 single-config generator or a multi-config generator, as the build process
-differs slightly based on this.
-
-A single-config generator needs to choose between the *debug* mode and the
-*release* mode in step 1, while a multi-config generator does so in step 3.
+differs slightly in [step 2](#2-cmake-configure-stage) below.
 
 <!-- TODO: Expand on Conan profiles and generators -->
 
 ### 1. Conan install stage
 
-If you are using a single-config generator, you should pick whether you are
-building in the debug mode or the release mode now by running one of the two
-commands:
+There are two build types exposed by Conan: debug and release.
+You need to run `conan install` to prepare for each build type.
 
 - debug:
   
@@ -67,7 +64,7 @@ commands:
   conan install . --build=missing -s build_type=Release
   ```
 
-If you are using a multi-config generator, you should run both commands above.
+You can prepare for both build types by running both commands.
 
 #### Predefined profiles in [.pr](.pr)
 
@@ -120,27 +117,28 @@ conan install . --build=missing -pr .pr/clang -pr .pr/ninja-debug
 conan install . --build=missing -pr .pr/clang -pr .pr/ninja-release
 ```
 
-to specify that you want to use Clang as the compiler and Ninja as a generator
-for a multi-config build.
+to prepare for both build types and specify that you want to use Clang as the
+compiler and Ninja as the generator for a multi-config build.
 
 #### Using modules vs using headers
 
 By default, this library will be built for a consumer that uses C++ modules.
-To use headers instead, append `-o use_modules=False` to the above command.
-For example,
+To use headers instead, append `-o use_modules=False` to the `conan install`
+command. For example,
 
 ```bash
-conan install . --build=missing -pr .pr/gcc-debug -o use_modules=False
+conan install . --build=missing -pr .pr/gcc-debug -o '&:use_modules=False'
 ```
 
 will prepare a build system for a library that use headers, where the compiler
 is GCC and the build mode is debug.
 
+
+
 ### 2. CMake configure stage
 
 If you are using a single-config generator, choose the preset consistent with
-the build mode you chose earlier.
-If you are using a multi-config generator, use `conan-default`.
+the build type you chose earlier.
 
 - single-config, debug:
 
@@ -154,6 +152,11 @@ If you are using a multi-config generator, use `conan-default`.
   cmake --preset conan-release
   ```
 
+You can run both commands if you ran `conan install` for both build types.
+
+If you are using a multi-config generator, you only need to run one command and
+it will cover both build types.
+
 - multi-config:
 
   ```bash
@@ -163,7 +166,6 @@ If you are using a multi-config generator, use `conan-default`.
 *Note: If you want to generate coverage reports, you must add the option
 `-DSAT_ENABLE_COVERAGE=ON` to the command at this stage.
 See [below](#generating-code-coverage-reports) for more information.*
-
 
 ### 3. CMake build stage
 
@@ -179,12 +181,7 @@ See [below](#generating-code-coverage-reports) for more information.*
   cmake --build --preset conan-release
   ```
 
-If you are using a single-config generator, you can only compile code in the
-same mode you configured earlier, i.e., only one of the two commands here will
-work.
-
-If you are using a multi-config generator, this is the point you choose which
-mode to build your code in. You can run both commands to build for both modes.
+*Note: You can only compile code in the build type that you prepared earlier.*
 
 ### Running tests
 
@@ -250,9 +247,13 @@ cmake --build --preset conan-release --target coverage
 
 depending on the build type.
 
+*Note: A coverage report generated from a release build might not be accurate.
+It is generally better to generate a coverage report from a debug build.*
+
 The HTML report will be in `build/Debug/coverage_report/` or
 `build/Release/coverage_report/`, depending on the build type.
-Open the `index.html` in a web browser to view it.
+(Note the capitalization.)
+Open `index.html` inside the directory in a web browser to view it.
 
 Alternatively, you can serve the HTML file with Python's http.server.
 For example,
@@ -291,94 +292,95 @@ Below is a summary of available `just` commands:
   Removes the [`build`](build) directory.
 
 - ```bash
-  just init-single <compiler> <build_type> [cov | -]
+  just init [{debug | release} [<compiler> [{cov | -} [{mod | -}]]]]
   ```
 
   Does [step 1](#1-conan-install-stage) and [step 2](#2-cmake-configure-stage)
-  with a given compiler (default to `gcc`) and build type (default to `debug`).
-  If the last argument contains `cov` as a substring, a code coverage report
-  will be generated when tests are run. If the last argument is not specified,
-  and `build_type` is `debug`, it will default to `cov`. Otherwise, it will 
-  default to an empty string.
+  with a given build type (`debug` or `release`), a given compiler (default
+  to `gcc`), and Ninja single-config as the generator.
+  If the second last argument contains `cov` as a substring, the code coverage
+  report generation will be enabled. (If absent, it defaults to `cov`.)
+  If the last argument contains `mod` as a substring, the code will be compiled
+  for C++ modules. (If absent, it defaults to `mod`.)
 
   Examples:
-
   - ```bash
-    just init-single clang release cov
+    just init debug clang -
     ```
-
-    Uses Clang to build a release version of the library with code coverage.
-
-  - ```bash
-    just init-single gcc release
-    ```
-
-    Uses GCC to build a release version of the library without code coverage.
-
-  - ```bash
-    just init-single clang
-    ```
-
-    Uses Clang to build a debug version of the library with code coverage.
+    Prepares for the debug build, using Clang as the compiler, without the
+    `coverage` CMake target. The library will be built as a C++ module.
   
   - ```bash
-    just init-single gcc debug -
+    just init release gcc with-coverage -
     ```
-
-    Uses GCC to build a debug version of the library without code coverage.
+    Prepares for the release build, using GCC as the compiler, with the
+    `coverage` CMake target. The library will be built for classic header
+    `#include`.
 
 - ```bash
-  just init-multi <compiler> [cov]
+  just init-single [<compiler> [cov | -]]
+  ```
+
+  Initializes both build types by passing the supplied arguments to
+  `just init debug` and `just init release`.
+
+- ```bash
+  just init-multi [<compiler> [cov | -]]
   ```
 
   Does [step 1](#1-conan-install-stage) and [step 2](#2-cmake-configure-stage)
   with a given compiler (default to `gcc`) and Ninja multi-config as the
   generator.
-  If the last argument contains `cov` as a substring, a code coverage report
-  will be generated when tests are run. If the last argument is not specified,
-  it will default to an empty string.
+  If the last argument contains `cov` as a substring, the code coverage report
+  generation will be enabled. If the last argument is not specified, it will
+  default to `cov`.
 
   Examples:
 
   - ```bash
-    just init-multi clang cov
+    just init-multi clang -
     ```
 
     Uses Clang as the compiler and Ninja multi-config as the generator.
-    Code coverage information will be available.
+    Code coverage report generation will be disabled.
   
   - ```bash
     just init-multi
     ```
 
     Uses GCC as the compiler and Ninja multi-config as the generator.
-    Code coverage information will not be available.
+    Code coverage report generation will be enabled.
 
 - ```bash
-  just build <build_type>
+  just build {debug | release} [...args]
   ```
 
-  Builds the code for the given build type. If `build_type` is not specified,
-  it will default to `debug`.
+  Builds the code for the given build type. This simply calls
+
+  ```bash
+  cmake --build --preset conan-{debug | release} ...args
+  ```
 
 - ```bash
-  just test <build_type>
+  just test {debug | release}
   ```
 
-  Runs tests for the given build type. If `build_type` is not specified,
-  it will default to `debug`.
+  Runs tests for the given build type.
 
   The code must have been built before running tests.
 
+  After the test is run, the test results in JUnit format will be stored in
+  `build/<Build_type>/report.xml` where `Build_type` is the capitalized version
+  of the specified build type.
+
 - ```bash
-  just build-cov <build_type>
+  just build-cov {debug | release}
   ```
 
-  Builds the code coverage report for the given build type. If `build_type`
-  is not specified, it will default to `debug`.
-  This will automatically build and run tests, and generate the report in the
-  directory `build/<Build_type>/coverage_report`, where `Build_type` is a
-  capitalized version of `build_type`.
+  Builds the code coverage report for the given build type.
+  This will automatically build and run tests, and generate the coverage report
+  in the directory `build/<Build_type>/coverage_report`, where `<Build_type>`
+  is the capitalized version of the specified build type.
 
   **Prerequisites:**
   - The build system must have been initialized with coverage information
@@ -388,11 +390,151 @@ Below is a summary of available `just` commands:
     for more information.
 
 - ```bash
-  just show-cov <build_type>
+  just show-cov {debug | release}
   ```
 
   Shows the code coverage report for the given build type in a web browser.
-  If `build_type` is not specified, it will default to `debug`.
 
   This will only work after the coverage report has been generated.
 
+There are also `just` shortcuts that assume some default arguments:
+
+- `just cl` ⇒ `just clean`.
+- `just id` ⇒ `just init debug`.
+- `just ir` ⇒ `just init release`.
+- `just is` ⇒ `just init-single`.
+- `just im` ⇒ `just init-multi`.
+- `just ihd` ⇒ `just init debug gcc cov -`.
+- `just ihr` ⇒ `just init release gcc cov -`.
+- `just ihs` ⇒ `just init-single gcc cov -`.
+- `just ihm` ⇒ `just init-multi gcc cov -`.
+- `just bd` ⇒ `just build debug`.
+- `just br` ⇒ `just build release`.
+- `just ba` ⇒ `just bd; just br`.
+- `just td` ⇒ `just test debug`.
+- `just tr` ⇒ `just test release`.
+- `just ta` ⇒ `just td; just tr`.
+- `just bcd` ⇒ `just build-cov debug`.
+- `just bcr` ⇒ `just build-cov release`.
+- `just bca` ⇒ `just bcd; just bcr`.
+- `just scd` ⇒ `just show-cov debug`.
+- `just scr` ⇒ `just show-cov release`.
+
+Just commands that don't have arguments can be combined in a single line.
+For example,
+
+- ```bash
+  just clean is bc sc
+  ```
+  will clean the build directory, initialize the build system, build the
+  code coverage report, and display it.
+
+#### Composite `just` commands for CI
+
+- ```bash
+  just clean-build [<build_type> [<compiler> [<coverage> [<modules>]]]]
+  ```
+
+  Cleans the [build](build) directory, initializes the build system with the
+  given options (with `just init <build_type> <compiler> <coverage> <modules>`
+  ), then builds the code (with `just build <build_type>`).
+
+- ```bash
+  just clean-test [<build_type> [<compiler> [<coverage> [<modules>]]]]
+  ```
+
+  Does `just clean-build`, followed by `just test <build_type>`.
+
+- ```bash
+  just clean-cov [<build_type> [<compiler> [<modules>]]]
+  ```
+
+  Does `just clean-build` with `coverage=cov`, followed by
+  `just build-cov <build_type>`.
+
+- ```bash
+  just check-builds
+  ```
+
+  Cleans and builds for the debug build for the 4 combinations:
+  - GCC with C++ modules
+  - GCC with headers
+  - Clang with C++ modules
+  - Clang with headers
+
+  This is meant to be a big check whether the code compiles or not.
+
+- ```bash
+  just make-reports [<compiler> [<modules>]]
+  ```
+
+  Cleans, builds, runs tests to generate a test report (in
+  <build/Debug/report.xml>), and a coverage report (in
+  <build/Debug/coverage_report>).
+
+### Docker
+
+Some Dockerfiles for development are provided in the [ci](ci) subdirectory.
+You can use the provided <ci/compose.yaml> to simplify building docker images
+and running containers locally. Some `just` commands are also provided for
+convenience.
+
+- ```bash
+  just run-docker [<variant> [<stage> [...args]]]
+  ```
+
+  Builds an ephemeral Docker container from the image at the specified `stage`
+  in `Dockerfile.<variant>`, and run the command specified in `...args`.
+  Files in this repository will be copied into the container at directory
+  `/workspace` before the command is run.
+
+  - `variant`: A suffix of a Dockerfile in the [ci](ci) subdirectory.
+    For example, putting `ubuntu` will use
+    [ci/Dockerfile.ubuntu](ci/Dockerfile.ubuntu).
+    If `variant` is not specified, it defaults to `alpine`.
+  - `stage`: A *stage* in the Dockerfile. This should be `gcc` or `full`.
+    The `gcc` stage has a smaller image than `full` as it does not have
+    Clang and related tools.
+    If `stage` is not specified, it defaults to `gcc`.
+  - `args`: The command to run on the container. If not specified, it defaults
+    to `sh`, which effectively brings up an interactive shell of the container.
+    (The container will be destroyed after the shell session ends.)
+
+- ```bash
+  just create-docker [<variant> [<stage> [<name> [...args]]]]
+  ```
+
+  Creates a Docker container with the specified `name` from the image at the
+  specified `stage` in `Dockerfile.<variant>`, and run the command specified in
+  `...args` in detached mode.
+  Files in this repository will be copied into the container at directory
+  `/workspace` before the command is run.
+
+  - `variant`: A suffix of a Dockerfile in the [ci](ci) subdirectory.
+    For example, putting `ubuntu` will use
+    [ci/Dockerfile.ubuntu](ci/Dockerfile.ubuntu).
+    If `variant` is not specified, it defaults to `alpine`.
+  - `stage`: A *stage* in the Dockerfile. This should be `gcc` or `full`.
+    The `gcc` stage has a smaller image than `full` as it does not have
+    Clang and related tools.
+    If `stage` is not specified, it defaults to `gcc`.
+  - `name`: The name of the container. If not specified, it defaults to
+    `<variant>-<stage>`. If a container with the specified name already exists,
+    it will be stopped and deleted first.
+  - `args`: The command to run on the container. If not specified, it defaults
+    to `tail -f /dev/null`, which effectively does nothing except keeping the
+    container alive.
+
+- ```bash
+  just clean-docker-images [<prefix>]
+  ```
+
+  Calls `docker rmi` on all images whose tags have the specified `prefix`.
+  If `prefix` is not specified, it defaults to `sat-`, which is the prefix of
+  `name` in [compose.yaml](ci/compose.yaml).
+
+Example:
+
+- ```bash
+  just run-docker ubuntu full just check-builds
+  ```
