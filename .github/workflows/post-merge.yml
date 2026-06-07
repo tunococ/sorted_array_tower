@@ -2,7 +2,7 @@ name: Post-Merge Checks
 
 on:
   push:
-    branches: [main]
+    branches: [main, test-main]
 
 permissions:
   contents: read
@@ -24,7 +24,7 @@ jobs:
         with:
           context: ci/
           file: ci/Dockerfile.${{ matrix.variant }}
-          target: full
+          target: gcc
           load: true
           tags: tyghbn:post-merge-${{ matrix.variant }}-${{ github.sha }}
           cache-from: type=gha,scope=post-merge
