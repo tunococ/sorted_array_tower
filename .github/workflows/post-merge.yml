@@ -27,8 +27,8 @@ jobs:
           target: full
           load: true
           tags: tyghbn:post-merge-${{ matrix.variant }}-${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=post-merge
+          cache-to: type=gha,mode=max,scope=post-merge
 
       - name: Test building
         run: |

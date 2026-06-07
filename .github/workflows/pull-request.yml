@@ -24,8 +24,10 @@ jobs:
           target: gcc
           load: true
           tags: tyghbn:${{ github.head_ref }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: |
+            type=gha,scope=pull-request
+            type=gha,scope=post-merge
+          cache-to: type=gha,mode=max,scope=pull-request
 
       - name: Run tests and generate reports
         run: |
