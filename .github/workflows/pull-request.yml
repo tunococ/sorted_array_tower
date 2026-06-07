@@ -1,4 +1,4 @@
-name: PR Checks
+name: Pull Request Checks
 
 on:
   pull_request:
@@ -16,7 +16,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Build and cache Docker image
+      - name: Prepare Docker image
         uses: docker/build-push-action@v7
         with:
           context: ci/
@@ -36,7 +36,7 @@ jobs:
             tyghbn:${{ github.head_ref }} \
             -c "just make-reports"
 
-      - name: Move reports to workspace root for simpler artifact paths
+      - name: Package reports
         run: |
           sudo mkdir -p reports/coverage
           sudo mv build/Debug/test-report.xml reports
@@ -45,7 +45,7 @@ jobs:
           sudo mv build/Debug/coverage_report/summary.md reports/coverage
           sudo mv build/Debug/coverage_report/summary.txt reports/coverage
 
-      - name: Upload artifacts
+      - name: Upload reports
         uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -60,7 +60,7 @@ jobs:
       checks: write
     if: '!cancelled()'
     steps:
-      - name: Download artifacts
+      - name: Download reports
         uses: actions/download-artifact@v7
         with:
           name: reports
@@ -69,17 +69,20 @@ jobs:
         uses: mikepenz/action-junit-report@v6
         with:
           report_paths: test-report.xml
-          check_name: summarize-test-results
+          check_name: tests
 
       - name: Summarize coverage report
         run: |
-          export REPORT_MD=$(cat coverage/summary.md)
-          export REPORT_TXT=$(cat coverage/summary.txt)
-          export SUMMARY=$(grep . coverage/summary.txt | tail -n 1)
+          REPORT_MD=$(cat coverage/summary.md)
+          REPORT_TXT=$(cat coverage/summary.txt)
+          SUMMARY=$(grep . coverage/summary.txt | tail -n 1)
 
+          # Put the coverage report in the step summary
           cat coverage/summary.md > $GITHUB_STEP_SUMMARY
+
+          # Create a check run with the coverage report details
           gh api repos/${{ github.repository }}/check-runs \
-            -f name="summarize-coverage-report" \
+            -f name="coverage" \
             -f head_sha="${{ github.event.pull_request.head.sha || github.sha }}" \
             -f status="completed" \
             -f conclusion="success" \
@@ -88,8 +91,3 @@ jobs:
             -f output[text]="$REPORT_MD"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # - name: Test Summary
-      #   uses: test-summary/action@v2
-      #   with:
-      #     paths: test-report.xml

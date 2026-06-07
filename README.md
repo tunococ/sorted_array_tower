@@ -476,8 +476,8 @@ For example,
 
 Some Dockerfiles for development are provided in the [ci](ci) subdirectory.
 You can use the provided <ci/compose.yaml> to simplify building docker images
-and running containers built from them. Some `just` commands are also provided
-for convenience.
+and running containers locally. Some `just` commands are also provided for
+convenience.
 
 - ```bash
   just run-docker [<variant> [<stage> [...args]]]
