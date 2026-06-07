@@ -2,7 +2,7 @@ name: Post-Merge Checks
 
 on:
   push:
-    branches: [main, test-main]
+    branches: [main]
 
 permissions:
   contents: read
