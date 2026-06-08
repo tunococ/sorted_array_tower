@@ -11,7 +11,7 @@ init build_type compiler='gcc' coverage='cov' modules='mod':
     conan install . --build=missing -pr .pr/{{ compiler }}-{{ build_type }} \
         -o '&:use_modules={{ if modules =~ 'mod' { 'True' } else { 'False' } }}'
     cmake --preset conan-{{ build_type }} \
-        -DSAT_ENABLE_COVERAGE={{ if coverage =~ 'cov' { 'ON' } else { 'OFF' } }}
+        -DTYGHBN_ENABLE_COVERAGE={{ if coverage =~ 'cov' { 'ON' } else { 'OFF' } }}
 
 # Initialize single-config build for both build types
 init-single compiler='gcc' coverage='cov' modules='mod':
@@ -25,7 +25,7 @@ init-multi compiler='gcc' coverage='cov' modules='mod':
     conan install . --build=missing -pr .pr/{{ compiler }}-multi-release \
         -o '&:use_modules={{ if modules =~ 'mod' { 'True' } else { 'False' } }}'
     cmake --preset conan-default \
-        -DSAT_ENABLE_COVERAGE={{ if coverage =~ 'cov' { 'ON' } else { 'OFF' } }}
+        -DTYGHBN_ENABLE_COVERAGE={{ if coverage =~ 'cov' { 'ON' } else { 'OFF' } }}
 
 # Run `init debug`
 id: (init 'debug')
@@ -70,6 +70,7 @@ test build_type *args:
         -O build/{{ \
             if lowercase(build_type) =~ 'rel' { 'Release' } else { 'Debug' } \
         }}/test-report.txt \
+        --output-on-failure \
         {{ args }}
 
 td: (test 'debug')
@@ -119,7 +120,7 @@ create-docker variant='alpine' stage='full' name=(variant + '-' + stage) \
         run -d --name {{ name }} {{ stage }} {{ args }}
 
 # Remove Docker images matching a given prefix.
-clean-docker-images prefix='sat-':
+clean-docker-images prefix='tyghbn-':
     docker rmi $(docker images --format '{{{{.Repository}}:{{{{.Tag}}' | \
         grep '^{{ prefix }}') 2>/dev/null || true
 

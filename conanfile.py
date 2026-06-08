@@ -1,25 +1,24 @@
 from conan import ConanFile
+from conan.tools.build import check_min_cppstd
 from conan.tools.cmake import cmake_layout, CMakeDeps, CMakeToolchain, CMake
 
+PACKAGE_NAME = "tyghbn"
+EXPORT_LIBS = ["or_else", "add_one"]
 
-class SortedArrayTowerConan(ConanFile):
-    name = "sorted_array_tower"
-    version = "1.0.0"
-    
+class TYGHBN(ConanFile):
+    name = PACKAGE_NAME
+
     # Metadata
-    description = "A C++ library for efficient sorted array operations"
+    description = "Template You're Gonna Hate But Need"
     author = "Your Name"
     license = "MIT"
-    url = "https://github.com/yourusername/sorted_array_tower"
+
+    # If the package is available from ConanCenter:
+    url = "https://github.com/conan-io/conan-center-index"
     
     # Settings
     settings = "os", "compiler", "build_type", "arch"
     
-    # Requirements
-    requires = (
-        "doctest/[>=2.5.2]",
-    )
-
     # Options
     options = {
         "use_modules": [True, False],
@@ -28,15 +27,20 @@ class SortedArrayTowerConan(ConanFile):
         "use_modules": True,
     }
 
+    def build_requirements(self):
+        skip_tests = self.conf.get("tools.build:skip_test", default=False, check_type=bool)
+        if not skip_tests:
+            self.test_requires("doctest/[>=2.5.2]")
+
+    def validate(self):
+        check_min_cppstd(self, "20")
+
     def layout(self):
         cmake_layout(self, build_folder="build")
 
     def generate(self):
         tc = CMakeToolchain(self)
-        tc.variables["SAT_USE_MODULES"] = self.options.use_modules
-        tc.cache_variables["CMAKE_CXX_STANDARD"] = "20"
-        tc.cache_variables["CMAKE_CXX_STANDARD_REQUIRED"] = "ON"
-        tc.cache_variables["CMAKE_CXX_EXTENSIONS"] = "OFF"
+        tc.cache_variables["TYGHBN_USE_MODULES"] = self.options.use_modules
         tc.generate()
 
         deps = CMakeDeps(self)
@@ -44,9 +48,7 @@ class SortedArrayTowerConan(ConanFile):
 
     def build(self):
         cmake = CMake(self)
-        cmake.configure(variables={
-            "SAT_USE_MODULES": self.options.use_modules,
-        })
+        cmake.configure()
         cmake.build()
 
     def test(self):
@@ -58,7 +60,17 @@ class SortedArrayTowerConan(ConanFile):
         cmake.install()
     
     def package_info(self):
-        self.cpp_info.libs = ["sorted_array_tower"]
-        self.cpp_info.set_property("cmake_find_mode", "config")
-        self.cpp_info.set_property("cmake_file_name", "sorted_array_tower")
-        self.cpp_info.set_property("cmake_target_name", "sorted_array_tower::sorted_array_tower")
+        pkg = self.cpp_info
+        pkg.set_property("cmake_file_name", PACKAGE_NAME)
+
+        for lib_name in EXPORT_LIBS:
+            component = pkg.components[lib_name]
+            component.libs = [lib_name]
+            component.set_property(
+                "cmake_target_name",
+                f"{PACKAGE_NAME}::{lib_name}"
+            )
+
+            if self.options.use_modules:
+                component.srcdirs = ["modules"]
+
