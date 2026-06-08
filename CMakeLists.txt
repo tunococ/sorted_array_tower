@@ -1,152 +1,180 @@
 cmake_minimum_required(VERSION 4.3.2)
-project(sorted_array_tower
+project(tyghbn
   VERSION 1.0.0
-  DESCRIPTION "A C++ library for efficient sorted array operations"
+  DESCRIPTION "A C++ utility library providing simple template functions"
   LANGUAGES CXX
 )
 
-# Set C++ standard
-if(NOT DEFINED CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 20)
-endif()
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
 # Option for building with modules (C++20 modules support)
-option(SAT_USE_MODULES "Use C++20 modules instead of headers" OFF)
+option(TYGHBN_USE_MODULES "Use C++20 modules instead of headers" OFF)
 
-if(SAT_USE_MODULES)
-  if(NOT CMAKE_GENERATOR STREQUAL "Ninja" AND NOT CMAKE_GENERATOR STREQUAL "Ninja Multi-Config" AND NOT CMAKE_GENERATOR MATCHES "Visual Studio")
-    message(WARNING "C++ modules are not supported by generator ${CMAKE_GENERATOR}; falling back to header-only mode")
-    set(SAT_USE_MODULES OFF CACHE BOOL "Use C++20 modules instead of headers" FORCE)
+if(TYGHBN_USE_MODULES)
+  if(NOT CMAKE_GENERATOR STREQUAL "Ninja" AND
+    NOT CMAKE_GENERATOR STREQUAL "Ninja Multi-Config" AND
+    NOT CMAKE_GENERATOR MATCHES "Visual Studio")
+    message(WARNING "${CMAKE_GENERATOR} does not support C++ modules")
+    message(WARNING "Configuring for building ${PROJECT_NAME} without C++ modules")
+    set(TYGHBN_USE_MODULES OFF CACHE BOOL "Use C++20 modules instead of headers" FORCE)
+  else()
+    message(STATUS "Configuring for building ${PROJECT_NAME} with C++ modules")
   endif()
+else()
+  message(STATUS "Configuring for building ${PROJECT_NAME} without C++ modules")
 endif()
 
 # Include Conan generated files
-if(EXISTS "${CMAKE_BINARY_DIR}/conan_toolchain.cmake")
-  include("${CMAKE_BINARY_DIR}/conan_toolchain.cmake")
+if(EXISTS "${CMAKE_BINARY_DIR}/generators/conan_toolchain.cmake")
+  include("${CMAKE_BINARY_DIR}/generators/conan_toolchain.cmake")
 endif()
 
-# Find Conan-provided packages
-find_package(doctest QUIET)
-
-# Main library target
-if(SAT_USE_MODULES)
-  add_library(sorted_array_tower STATIC)
-else()
-  add_library(sorted_array_tower INTERFACE)
-endif()
-
-if(SAT_USE_MODULES)
-  # Module-based implementation (C++20)
-  target_sources(sorted_array_tower
-    PUBLIC
-      FILE_SET CXX_MODULES
-        FILES src/sorted_array_tower.cppm
-      FILE_SET HEADERS
-        FILES include/sorted_array_tower/sorted_array_tower.hpp
-        BASE_DIRS include
-  )
-  target_compile_features(sorted_array_tower PUBLIC cxx_std_20)
-  set(SAT_TARGET_VISIBILITY PUBLIC)
-else()
-  # Header-only implementation
-  target_sources(sorted_array_tower
-    INTERFACE
-      FILE_SET headers
-        TYPE HEADERS
-        FILES include/sorted_array_tower/sorted_array_tower.hpp
-  )
-  set(SAT_TARGET_VISIBILITY INTERFACE)
-endif()
-
-# Set include directories
-target_include_directories(sorted_array_tower
-  ${SAT_TARGET_VISIBILITY}
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
+# Library without cpp files.
+add_library(or_else-legacy INTERFACE)
+target_sources(or_else-legacy
+  INTERFACE
+    FILE_SET HEADERS
+      FILES include/tyghbn/or_else.hpp
+      BASE_DIRS include
 )
 
-# Enable testing
-enable_testing()
+# Header-only library target: or_else
+# The header-style library has to be declared as an INTERFACE library,
+# while the module-style library can be unspecified (STATIC or SHARED).
 
-# Add test executable
-if(doctest_FOUND)
-  add_executable(test_sorted_array_tower
-    tests/test_sorted_array_tower.cpp
+if(TYGHBN_USE_MODULES)
+  add_library(or_else)
+  target_compile_features(or_else PUBLIC cxx_std_20)
+  target_link_libraries(or_else
+    PUBLIC
+      or_else-legacy
   )
+  target_sources(or_else
+    PUBLIC
+      FILE_SET CXX_MODULES
+        FILES modules/or_else.cppm
+  )
+else()
+  add_library(or_else INTERFACE)
+  target_link_libraries(or_else
+    INTERFACE
+      or_else-legacy
+  )
+endif()
 
-  if(SAT_USE_MODULES)
-    target_compile_definitions(test_sorted_array_tower
+# Template for a library with at least one cpp file.
+#
+# To provide a consist interface for module and non-module versions, start with
+# a base library which is a non-module version.
+add_library(add_one-legacy)
+target_sources(add_one-legacy
+  PUBLIC
+    FILE_SET HEADERS
+      FILES include/tyghbn/add_one.hpp
+      BASE_DIRS include
+  PRIVATE
+    src/add_one.cpp
+)
+
+# To expose the library as a C++ module, add cppm files that export symbols
+# from header files.
+if(TYGHBN_USE_MODULES)
+  add_library(add_one)
+  target_compile_features(add_one PUBLIC cxx_std_20)
+  target_link_libraries(add_one
+    PUBLIC
+      add_one-legacy
+  )
+  target_sources(add_one
+    PUBLIC
+      FILE_SET CXX_MODULES
+        FILES modules/add_one.cppm
+  )
+else()
+  add_library(add_one INTERFACE)
+  target_link_libraries(add_one
+    INTERFACE
+      add_one-legacy
+  )
+endif()
+
+# Testing enabled only when the project is top-level and BUILD_TESTING is not
+# explicitly defined as OFF.
+if(PROJECT_IS_TOP_LEVEL AND NOT (DEFINED BUILD_TESTING AND NOT BUILD_TESTING))
+  # Find doctest ONLY via the configuration of this project.
+  find_package(doctest CONFIG QUIET)
+
+  if(NOT doctest_FOUND)
+    message(WARNING "doctest not found - tests will not be built")
+    return()
+  endif()
+
+  # Enable testing
+  enable_testing()
+
+  list(APPEND CMAKE_MODULE_PATH ${doctest_CMAKE_MODULE_PATH})
+  include(doctest)
+
+  add_executable(test_tyghbn)
+
+  # Pass the TYGHBN_USE_MODULES flag to the test code
+  if(TYGHBN_USE_MODULES)
+    target_compile_definitions(test_tyghbn
       PRIVATE
-        SAT_USE_MODULES
+        TYGHBN_USE_MODULES
     )
   endif()
 
-  target_link_libraries(test_sorted_array_tower
+  add_subdirectory(tests)
+
+  target_link_libraries(test_tyghbn
     PRIVATE
-      sorted_array_tower
       doctest::doctest
   )
 
-  target_include_directories(test_sorted_array_tower
-    PRIVATE
-      ${CMAKE_CURRENT_SOURCE_DIR}/include
-  )
+  doctest_discover_tests(test_tyghbn)
 
-  add_test(
-    NAME sorted_array_tests
-    COMMAND test_sorted_array_tower
-  )
-else()
-  message(WARNING "doctest not found - tests will not be built")
-endif()
+  option(TYGHBN_ENABLE_COVERAGE "Enable code coverage instrumentation" OFF)
 
-# Code coverage support (only when this is the top-level project)
-if(PROJECT_IS_TOP_LEVEL)
-  option(SAT_ENABLE_COVERAGE "Enable code coverage instrumentation" OFF)
-
-  if(SAT_ENABLE_COVERAGE)
+  if(TYGHBN_ENABLE_COVERAGE)
     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
       if(doctest_FOUND)
-        target_compile_options(test_sorted_array_tower PRIVATE --coverage -O0 -g)
-        target_link_options(test_sorted_array_tower PRIVATE --coverage)
+        target_compile_options(test_tyghbn PRIVATE --coverage -O0 -g)
+        target_link_options(test_tyghbn PRIVATE --coverage)
 
         find_program(GCOVR gcovr)
 
         if(GCOVR)
           if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-            find_program(SAT_LLVM_COV llvm-cov)
-            if(SAT_LLVM_COV)
-              set(SAT_GCOV_EXECUTABLE "${SAT_LLVM_COV} gcov")
+            find_program(TYGHBN_LLVM_COV llvm-cov)
+            if(TYGHBN_LLVM_COV)
+              set(TYGHBN_GCOV_EXECUTABLE "${TYGHBN_LLVM_COV} gcov")
             else()
               message(WARNING "llvm-cov not found — coverage target will not be created")
-              set(SAT_ENABLE_COVERAGE OFF)
+              set(TYGHBN_ENABLE_COVERAGE OFF)
             endif()
           else()
-            set(SAT_GCOV_EXECUTABLE gcov)
+            set(TYGHBN_GCOV_EXECUTABLE gcov)
           endif()
 
-          if(SAT_ENABLE_COVERAGE)
-            set(SAT_BUILD_DIR "$<TARGET_FILE_DIR:test_sorted_array_tower>")
+          if(TYGHBN_ENABLE_COVERAGE)
+            set(TYGHBN_BUILD_DIR "$<TARGET_FILE_DIR:test_tyghbn>")
             add_custom_target(coverage
-              COMMAND $<TARGET_FILE:test_sorted_array_tower>
-              COMMAND ${CMAKE_COMMAND} -E make_directory "${SAT_BUILD_DIR}/coverage_report"
+              COMMAND $<TARGET_FILE:test_tyghbn>
+              COMMAND ${CMAKE_COMMAND} -E make_directory "${TYGHBN_BUILD_DIR}/coverage_report"
               COMMAND ${GCOVR} --root ${CMAKE_SOURCE_DIR}
                 --txt
-                "${SAT_BUILD_DIR}/coverage_report/report.txt"
+                "${TYGHBN_BUILD_DIR}/coverage_report/report.txt"
                 --html-details
-                "${SAT_BUILD_DIR}/coverage_report/index.html"
+                "${TYGHBN_BUILD_DIR}/coverage_report/index.html"
                 --cobertura
-                "${SAT_BUILD_DIR}/coverage_report/cobertura.xml"
+                "${TYGHBN_BUILD_DIR}/coverage_report/cobertura.xml"
                 --markdown
-                "${SAT_BUILD_DIR}/coverage_report/summary.md"
+                "${TYGHBN_BUILD_DIR}/coverage_report/summary.md"
                 --exclude "${CMAKE_SOURCE_DIR}/tests/.*"
-                --gcov-executable "${SAT_GCOV_EXECUTABLE}"
+                --gcov-executable "${TYGHBN_GCOV_EXECUTABLE}"
                 --txt-summary >
-                "${SAT_BUILD_DIR}/coverage_report/summary.txt"
-              WORKING_DIRECTORY "${SAT_BUILD_DIR}"
-              COMMENT "Generating code coverage report in ${SAT_BUILD_DIR}/coverage_report"
+                "${TYGHBN_BUILD_DIR}/coverage_report/summary.txt"
+              WORKING_DIRECTORY "${TYGHBN_BUILD_DIR}"
+              COMMENT "Generating code coverage report in ${TYGHBN_BUILD_DIR}/coverage_report"
             )
           endif()
         else()
@@ -159,15 +187,30 @@ if(PROJECT_IS_TOP_LEVEL)
       message(WARNING "Code coverage is not supported with ${CMAKE_CXX_COMPILER_ID}")
     endif()
   endif()
+
+
+else()
+  message(WARNING "Not building tests")
+  message(WARNING "BUILD_TESTING is ${BUILD_TESTING}")
 endif()
 
 # Installation rules
-install(TARGETS sorted_array_tower
-  LIBRARY DESTINATION lib
-  ARCHIVE DESTINATION lib
-  RUNTIME DESTINATION bin
-)
-
-install(DIRECTORY include/sorted_array_tower
-  DESTINATION include
-)
+if(TYGHBN_USE_MODULES)
+  install(TARGETS or_else add_one
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    RUNTIME DESTINATION bin
+    FILE_SET CXX_MODULES
+    DESTINATION modules
+    FILE_SET HEADERS
+    DESTINATION include
+  )
+else()
+  install(TARGETS or_else add_one
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    RUNTIME DESTINATION bin
+    FILE_SET HEADERS
+    DESTINATION include
+  )
+endif()

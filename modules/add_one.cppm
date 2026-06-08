@@ -4,10 +4,10 @@
 
 module;
 
-#include "sorted_array_tower/sorted_array_tower.hpp"
+#include <tyghbn/add_one.hpp>
 
-export module sorted_array_tower;
+export module tyghbn.add_one;
 
-export namespace sorted_array_tower {
-  using sorted_array_tower::SortedArrayTower;
+export namespace tyghbn {
+  using tyghbn::add_one;
 }
