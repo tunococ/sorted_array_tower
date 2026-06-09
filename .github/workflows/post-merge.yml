@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        variant: [alpine, debian]
+        variant: [alpine, ubuntu]
     steps:
       - uses: actions/checkout@v6
 
