@@ -390,10 +390,11 @@ Below is a summary of available `just` commands:
     for more information.
 
 - ```bash
-  just show-cov {debug | release}
+  just show-cov {debug | release} [<port>]
   ```
 
-  Shows the code coverage report for the given build type in a web browser.
+  Shows the code coverage report for the given build type as a web page at
+  `http://localhost:<port>`. The default port is 8070.
 
   This will only work after the coverage report has been generated.
 
@@ -538,3 +539,26 @@ Example:
 - ```bash
   just run-docker ubuntu full just check-builds
   ```
+
+## Code documentation
+
+**Prerequisite: [Doxygen](https://www.doxygen.nl/) version 1.9.8 or newer**
+
+- ```bash
+  just doc
+  ```
+
+  Create the code documentation in `build/doc`.
+
+- ```bash
+  just clean-doc
+  ```
+
+  Remove `build/doc`.
+
+- ```bash
+  just show-doc [<port>]
+  ```
+
+  Show the doc as an webpage at `http://localhost:<port>`.
+  The default `port` is 8060.

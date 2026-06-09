@@ -27,6 +27,28 @@ if(EXISTS "${CMAKE_BINARY_DIR}/generators/conan_toolchain.cmake")
   include("${CMAKE_BINARY_DIR}/generators/conan_toolchain.cmake")
 endif()
 
+# Prepare compile_commands.json for development tools such as documentation and
+# LSP.
+if(PROJECT_IS_TOP_LEVEL)
+  set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+  # Automatically resolve the correct path regardless of generator type
+  if(CMAKE_CONFIGURATION_TYPES)
+    # Multi-Config outputs directly to the top-level build directory
+    set(CDB_PATH "${CMAKE_BINARY_DIR}")
+  else()
+    # Single-Config outputs to the active Conan variant folder (Release/Debug)
+    set(CDB_PATH "${CMAKE_CURRENT_BINARY_DIR}")
+  endif()
+
+  # Create an absolute invariant build target
+  add_custom_target(docs
+    COMMAND hdoc -p "${CDB_PATH}" --verbose
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Generating clean library documentation..."
+  )
+endif()
+
 # Library without cpp files.
 add_library(or_else-legacy INTERFACE)
 target_sources(or_else-legacy
@@ -188,7 +210,6 @@ if(PROJECT_IS_TOP_LEVEL AND NOT (DEFINED BUILD_TESTING AND NOT BUILD_TESTING))
     endif()
   endif()
 
-
 else()
   message(WARNING "Not building tests")
   message(WARNING "BUILD_TESTING is ${BUILD_TESTING}")
@@ -214,3 +235,4 @@ else()
     DESTINATION include
   )
 endif()
+

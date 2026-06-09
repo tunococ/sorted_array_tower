@@ -93,7 +93,7 @@ bcr: (build-cov 'release')
 bca: bcd bcr
 
 # Show the coverage report in a web browser
-show-cov build_type port='8080':
+show-cov build_type port='8070':
     python3 -m http.server --directory \
         build/{{ \
             if lowercase(build_type) =~ 'rel' { 'Release' } else { 'Debug' } \
@@ -157,3 +157,28 @@ make-reports compiler='gcc' modules='mod':
     just clean
     just init debug {{ compiler }} cov {{ modules }}
     just bd td bcd
+
+
+# Documentation
+# =============
+
+# Generate documentation with Doxygen
+doc:
+    mkdir -p build/doc
+    doxygen Doxyfile
+
+# Remove generated documentation
+clean-doc:
+    rm -rf build/doc
+
+# Show documentation in a web browser
+show-doc port='8060':
+    python3 -m http.server --directory build/doc {{ port }}
+
+# Clean the documentation directory, rebuild it, and display it.
+docx port='8060':
+    just clean-doc
+    just doc
+    just show-doc {{ port }}
+
+

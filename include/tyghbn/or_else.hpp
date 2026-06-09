@@ -1,3 +1,9 @@
+/**
+ * @file
+ * 
+ * @brief [tyghbn.or_else](module__tyghbn_8or__else.html)
+ */
+
 #pragma once
 
 namespace tyghbn {
